@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,47 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const assert = require('assert');
-const sinon = require('sinon');
 const supertest = require('supertest');
-
 const functionsFramework = require('@google-cloud/functions-framework/testing');
+require('../index');
 
-beforeEach(() => {
-  // require the module that includes the functions we are testing
-  require('../index');
-
-  // stub the console so we can use it for side effect assertions
-  sinon.stub(console, 'log');
-  sinon.stub(console, 'error');
-});
-
-afterEach(() => {
-  // restore the console stub
-  console.log.restore();
-  console.error.restore();
-});
-
-describe('functions_cloudevent_storage', () => {
+describe('functions_log_cloudevent', () => {
   it('should process a CloudEvent', async () => {
     const event = {
-      id: '1234',
-      type: 'mock-gcs-event',
+      type: 'google.cloud.audit.log.v1.written',
+      subject:
+        'storage.googleapis.com/projects/_/buckets/my-bucket/objects/test.txt',
       data: {
-        bucket: 'my-bucket',
-        name: 'my-file.txt',
+        protoPayload: {
+          methodName: 'storage.objects.write',
+          authenticationInfo: {
+            principalEmail: 'example@example.com',
+          },
+          resourceName: 'some-resource',
+        },
       },
     };
-    const server = functionsFramework.getTestServer('helloGCS');
+    const server = functionsFramework.getTestServer('helloAuditLog');
     await supertest(server)
       .post('/')
       .send(event)
       .set('Content-Type', 'application/json')
       .expect(204);
-
-    assert(console.log.calledWith('Event ID: 1234'));
-    assert(console.log.calledWith('Event Type: mock-gcs-event'));
-    assert(console.log.calledWith('Bucket: my-bucket'));
-    assert(console.log.calledWith('File: my-file.txt'));
   });
 });
